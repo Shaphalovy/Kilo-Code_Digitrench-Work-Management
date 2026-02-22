@@ -221,10 +221,13 @@ export default function UsersPage() {
     updateUser(user.id, { isActive: !user.isActive });
   };
 
-  const handleDeleteUser = (user: User) => {
-    if (user.id === currentUser.id) return;
-    if (confirm(`Are you sure you want to delete ${user.name}?`)) {
-      deleteUser(user.id);
+  const handleDeleteUser = (userId: string) => {
+    if (userId === currentUser.id) {
+      alert('You cannot delete your own account');
+      return;
+    }
+    if (confirm(`Are you sure you want to delete this user?`)) {
+      deleteUser(userId);
     }
   };
 
@@ -360,7 +363,7 @@ export default function UsersPage() {
                           {user.isActive ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
                         </button>
                         <button
-                          onClick={() => handleDeleteUser(user)}
+                          onClick={() => handleDeleteUser(user.id)}
                           className="p-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
                           title="Delete user"
                         >
