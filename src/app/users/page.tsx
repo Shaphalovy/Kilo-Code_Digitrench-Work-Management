@@ -19,13 +19,13 @@ interface InviteModalProps {
 }
 
 function InviteModal({ onClose, inviterRole }: InviteModalProps) {
-  const { addUser } = useAppStore();
+  const { addUser, departments } = useAppStore();
   const [form, setForm] = useState({
     name: '',
     email: '',
     password: '',
     role: 'employee' as UserRole,
-    department: 'hr' as Department,
+    department: departments[0]?.id || 'hr' as Department,
     position: '',
   });
   const [success, setSuccess] = useState(false);
@@ -143,8 +143,8 @@ function InviteModal({ onClose, inviterRole }: InviteModalProps) {
                   onChange={e => setForm(prev => ({ ...prev, department: e.target.value as Department }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
                 >
-                  {(['hr', 'operations', 'call_center', 'finance', 'it', 'management'] as Department[]).map(dept => (
-                    <option key={dept} value={dept}>{getDepartmentLabel(dept)}</option>
+                  {departments.map(dept => (
+                    <option key={dept.id} value={dept.id}>{dept.name}</option>
                   ))}
                 </select>
               </div>
@@ -180,7 +180,7 @@ function InviteModal({ onClose, inviterRole }: InviteModalProps) {
 }
 
 export default function UsersPage() {
-  const { currentUser, users, updateUser, deleteUser } = useAppStore();
+  const { currentUser, users, departments, updateUser, deleteUser } = useAppStore();
   const [showInvite, setShowInvite] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterRole, setFilterRole] = useState('all');
@@ -279,8 +279,8 @@ export default function UsersPage() {
             className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
           >
             <option value="all">All Departments</option>
-            {(['hr', 'operations', 'call_center', 'finance', 'it', 'management'] as Department[]).map(dept => (
-              <option key={dept} value={dept}>{getDepartmentLabel(dept)}</option>
+            {departments.map(dept => (
+              <option key={dept.id} value={dept.id}>{dept.name}</option>
             ))}
           </select>
         </div>

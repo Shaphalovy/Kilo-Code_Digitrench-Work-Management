@@ -262,6 +262,7 @@ export const useAppStore = create<AppState>()(
         activityLogs: state.activityLogs,
         currentUser: state.currentUser,
         isAuthenticated: state.isAuthenticated,
+        departments: state.departments,
       }),
     }
   )
