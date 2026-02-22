@@ -10,21 +10,23 @@ import {
 } from '@/lib/utils';
 import {
   Plus, FolderKanban, Users, Calendar, MoreHorizontal, Archive,
-  CheckCircle2, Clock, AlertTriangle, Search, Filter, Grid3X3, List
+  CheckCircle2, Clock, AlertTriangle, Search, Filter, Grid3X3, List, Trash2
 } from 'lucide-react';
 import Link from 'next/link';
 import CreateProjectModal from '@/components/ui/CreateProjectModal';
 
 export default function BoardsPage() {
-  const { currentUser, projects, tasks, users } = useAppStore();
+  const { currentUser, projects, tasks, users, deleteProject, departments } = useAppStore();
   const [showCreateProject, setShowCreateProject] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterDept, setFilterDept] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
 
   if (!currentUser) return null;
 
   const canCreate = currentUser.role === 'management' || currentUser.role === 'admin';
+  const canDelete = currentUser.role === 'admin';
 
   // Filter projects based on role
   const visibleProjects = currentUser.role === 'employee'
@@ -38,7 +40,14 @@ export default function BoardsPage() {
     return matchesSearch && matchesDept;
   });
 
-  const departments = [...new Set(visibleProjects.map(p => p.department))];
+  const handleDeleteProject = (projectId: string) => {
+    if (window.confirm('Are you sure you want to delete this project? All associated tasks will also be deleted.')) {
+      deleteProject(projectId);
+      setProjectToDelete(null);
+    }
+  };
+
+  const deptList = [...new Set(visibleProjects.map(p => p.department))];
 
   const getProjectStats = (project: Project) => {
     const projectTasks = tasks.filter(t => t.projectId === project.id);
@@ -97,7 +106,7 @@ export default function BoardsPage() {
           className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
         >
           <option value="all">All Departments</option>
-          {departments.map(dept => (
+          {deptList.map(dept => (
             <option key={dept} value={dept}>{getDepartmentLabel(dept)}</option>
           ))}
         </select>
@@ -143,94 +152,107 @@ export default function BoardsPage() {
             const members = project.members.map(id => users.find(u => u.id === id)).filter(Boolean);
 
             return (
-              <Link key={project.id} href={`/boards/${project.id}`}>
-                <div className="bg-white rounded-xl border border-gray-200 hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer overflow-hidden group">
-                  {/* Color bar */}
-                  <div className="h-1.5" style={{ backgroundColor: project.color }} />
+              <div key={project.id} className="bg-white rounded-xl border border-gray-200 hover:border-indigo-300 hover:shadow-md transition-all overflow-hidden group">
+                {/* Color bar */}
+                <div className="h-1.5" style={{ backgroundColor: project.color }} />
 
-                  <div className="p-5">
-                    {/* Header */}
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span
-                            className="text-xs font-medium px-2 py-0.5 rounded-full"
-                            style={{ backgroundColor: `${deptColor}20`, color: deptColor }}
-                          >
-                            {getDepartmentLabel(project.department)}
-                          </span>
-                          <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full', statusColors[project.status])}>
-                            {project.status.replace('_', ' ')}
-                          </span>
-                        </div>
+                <div className="p-5">
+                  {/* Header */}
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span
+                          className="text-xs font-medium px-2 py-0.5 rounded-full"
+                          style={{ backgroundColor: `${deptColor}20`, color: deptColor }}
+                        >
+                          {getDepartmentLabel(project.department)}
+                        </span>
+                        <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full', statusColors[project.status])}>
+                          {project.status.replace('_', ' ')}
+                        </span>
+                      </div>
+                      <Link href={`/boards/${project.id}`}>
                         <h3 className="font-semibold text-gray-900 group-hover:text-indigo-700 transition-colors line-clamp-1">
                           {project.name}
                         </h3>
-                      </div>
+                      </Link>
                     </div>
+                    {canDelete && (
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleDeleteProject(project.id);
+                        }}
+                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete project"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
 
-                    <p className="text-xs text-gray-500 line-clamp-2 mb-4">{project.description}</p>
+                  <p className="text-xs text-gray-500 line-clamp-2 mb-4">{project.description}</p>
 
-                    {/* Progress */}
-                    <div className="mb-4">
-                      <div className="flex justify-between text-xs text-gray-500 mb-1">
-                        <span>{stats.done}/{stats.total} tasks</span>
-                        <span className="font-medium text-gray-700">{stats.completionRate}%</span>
-                      </div>
-                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all"
-                          style={{ width: `${stats.completionRate}%`, backgroundColor: project.color }}
-                        />
-                      </div>
+                  {/* Progress */}
+                  <div className="mb-4">
+                    <div className="flex justify-between text-xs text-gray-500 mb-1">
+                      <span>{stats.done}/{stats.total} tasks</span>
+                      <span className="font-medium text-gray-700">{stats.completionRate}%</span>
                     </div>
-
-                    {/* Stats */}
-                    <div className="flex items-center gap-3 text-xs text-gray-500 mb-4">
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {stats.inProgress} active
-                      </span>
-                      {stats.overdue > 0 && (
-                        <span className="flex items-center gap-1 text-red-600">
-                          <AlertTriangle className="w-3 h-3" />
-                          {stats.overdue} overdue
-                        </span>
-                      )}
-                      {project.endDate && (
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-3 h-3" />
-                          {formatDate(project.endDate)}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Members */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex -space-x-2">
-                        {members.slice(0, 4).map(member => member && (
-                          <div
-                            key={member.id}
-                            className={cn(
-                              'w-7 h-7 rounded-full border-2 border-white flex items-center justify-center text-white text-xs font-bold',
-                              member.role === 'management' ? 'bg-indigo-500' : 'bg-emerald-500'
-                            )}
-                            title={member.name}
-                          >
-                            {member.name[0]}
-                          </div>
-                        ))}
-                        {members.length > 4 && (
-                          <div className="w-7 h-7 rounded-full border-2 border-white bg-gray-200 flex items-center justify-center text-xs text-gray-600 font-medium">
-                            +{members.length - 4}
-                          </div>
-                        )}
-                      </div>
-                      <span className="text-xs text-gray-400">{members.length} members</span>
+                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{ width: `${stats.completionRate}%`, backgroundColor: project.color }}
+                      />
                     </div>
                   </div>
+
+                  {/* Stats */}
+                  <div className="flex items-center gap-3 text-xs text-gray-500 mb-4">
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {stats.inProgress} active
+                    </span>
+                    {stats.overdue > 0 && (
+                      <span className="flex items-center gap-1 text-red-600">
+                        <AlertTriangle className="w-3 h-3" />
+                        {stats.overdue} overdue
+                      </span>
+                    )}
+                    {project.endDate && (
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        {formatDate(project.endDate)}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Members */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex -space-x-2">
+                      {members.slice(0, 4).map(member => member && (
+                        <div
+                          key={member.id}
+                          className={cn(
+                            'w-7 h-7 rounded-full border-2 border-white flex items-center justify-center text-white text-xs font-bold',
+                            member.role === 'management' ? 'bg-indigo-500' : 'bg-emerald-500'
+                          )}
+                          title={member.name}
+                        >
+                          {member.name[0]}
+                        </div>
+                      ))}
+                      {members.length > 4 && (
+                        <div className="w-7 h-7 rounded-full border-2 border-white bg-gray-200 flex items-center justify-center text-xs text-gray-600 font-medium">
+                          +{members.length - 4}
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-xs text-gray-400">{members.length} members</span>
+                  </div>
                 </div>
-              </Link>
+              </div>
             );
           })}
         </div>
@@ -245,6 +267,7 @@ export default function BoardsPage() {
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Progress</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Tasks</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Due Date</th>
+                {canDelete && <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -283,6 +306,17 @@ export default function BoardsPage() {
                     <td className="px-4 py-3">
                       <span className="text-xs text-gray-500">{project.endDate ? formatDate(project.endDate) : '—'}</span>
                     </td>
+                    {canDelete && (
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => handleDeleteProject(project.id)}
+                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete project"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 );
               })}

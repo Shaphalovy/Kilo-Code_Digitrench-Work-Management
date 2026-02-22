@@ -6,7 +6,13 @@ export type TaskStatus = 'todo' | 'in_progress' | 'review' | 'done' | 'blocked';
 
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
 
-export type Department = 'hr' | 'operations' | 'call_center' | 'finance' | 'it' | 'management';
+export type Department = string;
+
+export interface DepartmentConfig {
+  id: string;
+  name: string;
+  color: string;
+}
 
 export interface User {
   id: string;

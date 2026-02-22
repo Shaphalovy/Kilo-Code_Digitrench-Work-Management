@@ -1,11 +1,16 @@
 'use client';
 
+import { useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { useAppStore } from '@/lib/store';
-import { Settings, Shield, Database, Bell, Palette } from 'lucide-react';
+import { Settings, Shield, Database, Bell, Palette, Plus, Trash2, Building2 } from 'lucide-react';
+import { DepartmentConfig } from '@/types';
 
 export default function SettingsPage() {
-  const { currentUser } = useAppStore();
+  const { currentUser, departments, addDepartment, removeDepartment } = useAppStore();
+  const [showAddDept, setShowAddDept] = useState(false);
+  const [newDeptName, setNewDeptName] = useState('');
+  const [newDeptColor, setNewDeptColor] = useState('#6366f1');
 
   if (!currentUser) return null;
 
@@ -20,6 +25,20 @@ export default function SettingsPage() {
       </AppLayout>
     );
   }
+
+  const handleAddDepartment = () => {
+    if (!newDeptName.trim()) return;
+    const deptId = newDeptName.toLowerCase().replace(/\s+/g, '_');
+    addDepartment({ id: deptId, name: newDeptName, color: newDeptColor });
+    setNewDeptName('');
+    setShowAddDept(false);
+  };
+
+  const handleRemoveDepartment = (deptId: string) => {
+    if (window.confirm('Are you sure you want to remove this department?')) {
+      removeDepartment(deptId);
+    }
+  };
 
   return (
     <AppLayout title="Settings">
@@ -68,6 +87,82 @@ export default function SettingsPage() {
               )}
             </div>
           ))}
+        </div>
+
+        {/* Department Management */}
+        <div className="mt-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">Department Management</h3>
+            <button
+              onClick={() => setShowAddDept(true)}
+              className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Add Department
+            </button>
+          </div>
+
+          {/* Add Department Form */}
+          {showAddDept && (
+            <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
+              <h4 className="font-medium text-gray-900 mb-3">Add New Department</h4>
+              <div className="flex items-end gap-3">
+                <div className="flex-1">
+                  <label className="block text-sm text-gray-600 mb-1">Department Name</label>
+                  <input
+                    type="text"
+                    value={newDeptName}
+                    onChange={e => setNewDeptName(e.target.value)}
+                    placeholder="e.g., Marketing"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">Color</label>
+                  <input
+                    type="color"
+                    value={newDeptColor}
+                    onChange={e => setNewDeptColor(e.target.value)}
+                    className="w-10 h-10 border border-gray-300 rounded-lg cursor-pointer"
+                  />
+                </div>
+                <button
+                  onClick={handleAddDepartment}
+                  className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 transition-colors"
+                >
+                  Add
+                </button>
+                <button
+                  onClick={() => setShowAddDept(false)}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Department List */}
+          <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+            {departments.map(dept => (
+              <div key={dept.id} className="p-4 flex items-center justify-between hover:bg-gray-50">
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-4 h-4 rounded-full"
+                    style={{ backgroundColor: dept.color }}
+                  />
+                  <span className="font-medium text-gray-900">{dept.name}</span>
+                </div>
+                <button
+                  onClick={() => handleRemoveDepartment(dept.id)}
+                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Remove department"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="mt-6 bg-indigo-50 border border-indigo-200 rounded-xl p-5">

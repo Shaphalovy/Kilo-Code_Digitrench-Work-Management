@@ -5,18 +5,15 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
 import { getDepartmentLabel, getDepartmentColor, getInitials, getAvatarColor, cn } from '@/lib/utils';
-import { Department } from '@/types';
 import {
   LayoutDashboard, CheckSquare, FolderKanban, Clock, BarChart3,
   Users, Settings, Bell, ChevronDown, ChevronRight, Building2,
   LogOut, Briefcase, Bot, Menu, X, Plus
 } from 'lucide-react';
 
-const departments: Department[] = ['hr', 'operations', 'call_center', 'finance', 'it'];
-
 export default function Sidebar() {
   const pathname = usePathname();
-  const { currentUser, projects, notifications, logout, sidebarOpen, toggleSidebar, setActiveDepartment, activeDepartment } = useAppStore();
+  const { currentUser, projects, notifications, logout, sidebarOpen, toggleSidebar, setActiveDepartment, activeDepartment, departments } = useAppStore();
   const [deptExpanded, setDeptExpanded] = useState(true);
 
   if (!currentUser) return null;
@@ -39,10 +36,10 @@ export default function Sidebar() {
   ];
 
   const userDepts = currentUser.role === 'employee'
-    ? [currentUser.department as Department]
-    : departments;
+    ? [currentUser.department]
+    : departments.map(d => d.id);
 
-  const deptProjects = (dept: Department) =>
+  const deptProjects = (dept: string) =>
     projects.filter(p => p.department === dept && p.status === 'active');
 
   return (
@@ -184,11 +181,11 @@ export default function Sidebar() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-white truncate">{currentUser.name}</p>
-                <p className="text-xs text-slate-400 capitalize">{currentUser.role}</p>
+                <p className="text-xs text-slate-400 truncate">{currentUser.position}</p>
               </div>
               <button
                 onClick={logout}
-                className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
                 title="Logout"
               >
                 <LogOut className="w-4 h-4" />
@@ -197,10 +194,10 @@ export default function Sidebar() {
           ) : (
             <button
               onClick={logout}
-              className="w-full flex items-center justify-center p-2 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+              className="w-full p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
               title="Logout"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-4 h-4 mx-auto" />
             </button>
           )}
         </div>

@@ -1,4 +1,4 @@
-import { Task, TaskStatus, TaskPriority, Department, User, Project } from '@/types';
+import { Task, TaskStatus, TaskPriority, Department, User, Project, DepartmentConfig } from '@/types';
 import { format, formatDistanceToNow, isAfter, isBefore, addDays } from 'date-fns';
 
 // Date formatting
@@ -72,7 +72,7 @@ export const getPriorityLabel = (priority: TaskPriority): string => {
 };
 
 export const getDepartmentLabel = (dept: Department): string => {
-  const labels: Record<Department, string> = {
+  const labels: Record<string, string> = {
     hr: 'Human Resources',
     operations: 'Operations',
     call_center: 'Call Center',
@@ -80,11 +80,11 @@ export const getDepartmentLabel = (dept: Department): string => {
     it: 'IT',
     management: 'Management',
   };
-  return labels[dept];
+  return labels[dept] || dept.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
 };
 
 export const getDepartmentColor = (dept: Department): string => {
-  const colors: Record<Department, string> = {
+  const colors: Record<string, string> = {
     hr: '#ec4899',
     operations: '#10b981',
     call_center: '#f59e0b',
@@ -92,7 +92,7 @@ export const getDepartmentColor = (dept: Department): string => {
     it: '#8b5cf6',
     management: '#6366f1',
   };
-  return colors[dept];
+  return colors[dept] || '#6b7280';
 };
 
 // Task helpers

@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { User, Project, Task, Notification, ActivityLog, TaskStatus, Comment, TimeEntry, Attachment, Subtask } from '@/types';
+import { User, Project, Task, Notification, ActivityLog, TaskStatus, Comment, TimeEntry, Attachment, Subtask, DepartmentConfig } from '@/types';
 import { getInitialData } from './mockData';
 
 interface AppState {
@@ -16,6 +16,7 @@ interface AppState {
   tasks: Task[];
   notifications: Notification[];
   activityLogs: ActivityLog[];
+  departments: DepartmentConfig[];
 
   // UI State
   activeProjectId: string | null;
@@ -35,6 +36,10 @@ interface AppState {
   addProject: (project: Project) => void;
   updateProject: (id: string, updates: Partial<Project>) => void;
   deleteProject: (id: string) => void;
+
+  // Department Actions
+  addDepartment: (dept: DepartmentConfig) => void;
+  removeDepartment: (id: string) => void;
 
   // Task Actions
   addTask: (task: Task) => void;
@@ -82,6 +87,14 @@ export const useAppStore = create<AppState>()(
       tasks: initialData.tasks,
       notifications: initialData.notifications,
       activityLogs: initialData.activityLogs,
+      departments: [
+        { id: 'hr', name: 'Human Resources', color: '#ec4899' },
+        { id: 'operations', name: 'Operations', color: '#10b981' },
+        { id: 'call_center', name: 'Call Center', color: '#f59e0b' },
+        { id: 'finance', name: 'Finance', color: '#3b82f6' },
+        { id: 'it', name: 'IT', color: '#8b5cf6' },
+        { id: 'management', name: 'Management', color: '#6366f1' },
+      ],
       activeProjectId: null,
       activeDepartment: null,
       sidebarOpen: true,
@@ -125,6 +138,14 @@ export const useAppStore = create<AppState>()(
       deleteProject: (id) => set(state => ({
         projects: state.projects.filter(p => p.id !== id),
         tasks: state.tasks.filter(t => t.projectId !== id),
+      })),
+
+      // Department Actions
+      addDepartment: (dept) => set(state => ({ 
+        departments: [...state.departments.filter(d => d.id !== dept.id), dept] 
+      })),
+      removeDepartment: (id) => set(state => ({ 
+        departments: state.departments.filter(d => d.id !== id) 
       })),
 
       // Task Actions

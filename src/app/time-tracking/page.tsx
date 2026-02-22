@@ -21,11 +21,7 @@ export default function TimeTrackingPage() {
   const [filterUser, setFilterUser] = useState('all');
   const [filterDate, setFilterDate] = useState('');
 
-  if (!currentUser) return null;
-
-  const isManagement = currentUser.role !== 'employee';
-
-  // Timer effect
+  // Timer effect - always call at top level
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (activeTimer) {
@@ -35,6 +31,10 @@ export default function TimeTrackingPage() {
     }
     return () => clearInterval(interval);
   }, [activeTimer]);
+
+  if (!currentUser) return null;
+
+  const isManagement = currentUser.role !== 'employee';
 
   const formatElapsed = (seconds: number) => {
     const h = Math.floor(seconds / 3600);
@@ -86,300 +86,307 @@ export default function TimeTrackingPage() {
       endTime: new Date().toISOString(),
       duration,
       notes: manualNote,
-      date: new Date().toISOString().split('T')[0],
+      date: filterDate || new Date().toISOString().split('T')[0],
     };
     addTimeEntry(manualTaskId, entry);
     setManualHours('');
     setManualMinutes('');
-    setManualNote('');
     setManualTaskId('');
+    setManualNote('');
   };
 
-  // Collect all time entries
-  const allEntries = tasks.flatMap(task =>
-    task.timeEntries.map(entry => ({
-      ...entry,
-      taskTitle: task.title,
-      taskId: task.id,
-    }))
-  );
+  const myTasks = isManagement
+    ? tasks.filter(t => t.assigneeId === currentUser.id || t.assigneeId === currentUser.id)
+    : tasks.filter(t => t.assigneeId === currentUser.id);
 
-  const visibleEntries = allEntries.filter(entry => {
-    const matchesUser = filterUser === 'all' || entry.userId === filterUser;
-    const matchesDate = !filterDate || entry.date === filterDate;
-    const isMyEntry = currentUser.role === 'employee' ? entry.userId === currentUser.id : true;
-    return matchesUser && matchesDate && isMyEntry;
-  }).sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+  const userTimeEntries = myTasks.flatMap(t => t.timeEntries.map(e => ({ ...e, taskId: t.id, taskTitle: t.title })));
 
-  // My tasks for timer
-  const myActiveTasks = tasks.filter(t =>
-    t.assigneeId === currentUser.id && t.status !== 'done'
-  );
+  const filteredEntries = userTimeEntries.filter(e => {
+    const matchesUser = filterUser === 'all' || e.userId === filterUser;
+    const matchesDate = !filterDate || e.date === filterDate;
+    return matchesUser && matchesDate;
+  });
 
-  // Weekly chart data
-  const last7Days = Array.from({ length: 7 }, (_, i) => {
-    const date = new Date();
-    date.setDate(date.getDate() - (6 - i));
-    const dateStr = date.toISOString().split('T')[0];
-    const dayEntries = allEntries.filter(e => {
-      const isRelevant = currentUser.role === 'employee' ? e.userId === currentUser.id : true;
-      return e.date === dateStr && isRelevant;
-    });
-    const totalMinutes = dayEntries.reduce((sum, e) => sum + (e.duration || 0), 0);
+  const totalMinutes = filteredEntries.reduce((sum, e) => sum + (e.duration || 0), 0);
+  const totalHours = Math.floor(totalMinutes / 60);
+
+  const chartData = [...new Set(filteredEntries.map(e => e.date))].sort().slice(-7).map(date => {
+    const dayEntries = filteredEntries.filter(e => e.date === date);
     return {
-      day: date.toLocaleDateString('en', { weekday: 'short' }),
-      hours: parseFloat((totalMinutes / 60).toFixed(1)),
+      date: new Date(date).toLocaleDateString('en-US', { weekday: 'short' }),
+      hours: Math.round((dayEntries.reduce((sum, e) => sum + (e.duration || 0), 0)) / 60 * 10) / 10,
     };
   });
 
-  const totalHoursThisWeek = last7Days.reduce((sum, d) => sum + d.hours, 0);
-  const totalHoursToday = last7Days[last7Days.length - 1]?.hours || 0;
-
   const exportCSV = () => {
-    const headers = ['Date', 'Task', 'User', 'Duration (min)', 'Notes'];
-    const rows = visibleEntries.map(e => {
-      const user = users.find(u => u.id === e.userId);
-      return [e.date, e.taskTitle, user?.name || '', e.duration || 0, e.notes || ''];
-    });
-    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+    const csv = [
+      ['Date', 'Task', 'Duration (minutes)', 'Notes'].join(','),
+      ...filteredEntries.map(e => [
+        e.date,
+        `"${e.taskTitle}"`,
+        e.duration,
+        `"${e.notes || ''}"`
+      ].join(','))
+    ].join('\n');
+
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'time-report.csv';
+    a.download = `time-entries-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
     <AppLayout title="Time Tracking">
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-sm text-gray-500">Today</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{totalHoursToday.toFixed(1)}h</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-sm text-gray-500">This Week</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{totalHoursThisWeek.toFixed(1)}h</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-sm text-gray-500">Entries</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{visibleEntries.length}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-sm text-gray-500">Avg/Day</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{(totalHoursThisWeek / 7).toFixed(1)}h</p>
-        </div>
-      </div>
+      <div className="space-y-6">
+        {/* Active Timer */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <Clock className="w-5 h-5" />
+              Timer
+            </h2>
+            {activeTimer && (
+              <span className="text-2xl font-mono text-indigo-600">{formatElapsed(elapsed)}</span>
+            )}
+          </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        {/* Timer */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <Clock className="w-4 h-4 text-indigo-600" />
-            Active Timer
-          </h3>
-
-          {activeTimer ? (
-            <div className="text-center">
-              <div className="text-4xl font-mono font-bold text-indigo-600 mb-4">
-                {formatElapsed(elapsed)}
-              </div>
-              <p className="text-sm text-gray-600 mb-3">
-                {tasks.find(t => t.id === activeTimer.taskId)?.title}
-              </p>
-              <input
-                value={timeNote}
-                onChange={e => setTimeNote(e.target.value)}
-                placeholder="Add a note..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              <button
-                onClick={handleStopTimer}
-                className="w-full flex items-center justify-center gap-2 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
-              >
-                <Square className="w-4 h-4" />
-                Stop Timer
-              </button>
-            </div>
-          ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Select Task</label>
               <select
                 value={selectedTaskId}
                 onChange={e => setSelectedTaskId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                disabled={!!activeTimer}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100"
               >
-                <option value="">Select a task...</option>
-                {myActiveTasks.map(task => (
+                <option value="">Choose a task...</option>
+                {myTasks.filter(t => t.status !== 'done').map(task => (
                   <option key={task.id} value={task.id}>{task.title}</option>
                 ))}
               </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Note (optional)</label>
+              <input
+                type="text"
+                value={timeNote}
+                onChange={e => setTimeNote(e.target.value)}
+                placeholder="What are you working on?"
+                disabled={!!activeTimer}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 flex gap-3">
+            {!activeTimer ? (
               <button
                 onClick={handleStartTimer}
                 disabled={!selectedTaskId}
-                className="w-full flex items-center justify-center gap-2 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
               >
                 <Play className="w-4 h-4" />
                 Start Timer
               </button>
-            </div>
-          )}
+            ) : (
+              <button
+                onClick={handleStopTimer}
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                <Square className="w-4 h-4" />
+                Stop Timer
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Manual Entry */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <Plus className="w-4 h-4 text-indigo-600" />
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Plus className="w-5 h-5" />
             Manual Entry
-          </h3>
-          <div className="space-y-3">
-            <select
-              value={manualTaskId}
-              onChange={e => setManualTaskId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-            >
-              <option value="">Select a task...</option>
-              {myActiveTasks.map(task => (
-                <option key={task.id} value={task.id}>{task.title}</option>
-              ))}
-            </select>
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <input
-                  type="number"
-                  value={manualHours}
-                  onChange={e => setManualHours(e.target.value)}
-                  placeholder="Hours"
-                  min="0"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-              <div className="flex-1">
-                <input
-                  type="number"
-                  value={manualMinutes}
-                  onChange={e => setManualMinutes(e.target.value)}
-                  placeholder="Minutes"
-                  min="0"
-                  max="59"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Task</label>
+              <select
+                value={manualTaskId}
+                onChange={e => setManualTaskId(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">Choose a task...</option>
+                {myTasks.map(task => (
+                  <option key={task.id} value={task.id}>{task.title}</option>
+                ))}
+              </select>
             </div>
-            <input
-              value={manualNote}
-              onChange={e => setManualNote(e.target.value)}
-              placeholder="Notes (optional)"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Hours</label>
+              <input
+                type="number"
+                min="0"
+                value={manualHours}
+                onChange={e => setManualHours(e.target.value)}
+                placeholder="0"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Minutes</label>
+              <input
+                type="number"
+                min="0"
+                max="59"
+                value={manualMinutes}
+                onChange={e => setManualMinutes(e.target.value)}
+                placeholder="0"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+              <input
+                type="date"
+                value={filterDate}
+                onChange={e => setFilterDate(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Note</label>
+              <input
+                type="text"
+                value={manualNote}
+                onChange={e => setManualNote(e.target.value)}
+                placeholder="What did you work on?"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4">
             <button
               onClick={handleManualLog}
               disabled={!manualTaskId || (!manualHours && !manualMinutes)}
-              className="w-full py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
             >
+              <Plus className="w-4 h-4" />
               Log Time
             </button>
           </div>
         </div>
 
-        {/* Weekly Chart */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <BarChart3 className="w-4 h-4 text-indigo-600" />
-            Weekly Overview
-          </h3>
-          <ResponsiveContainer width="100%" height={160}>
-            <BarChart data={last7Days}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="day" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip formatter={(v) => [`${v}h`, 'Hours']} />
-              <Bar dataKey="hours" fill="#6366f1" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+        {/* Time Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <p className="text-sm text-gray-500 mb-1">Total Time Logged</p>
+            <p className="text-3xl font-bold text-gray-900">{formatDuration(totalMinutes)}</p>
+          </div>
 
-      {/* Time Log Table */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h3 className="font-semibold text-gray-900">Time Log</h3>
-          <div className="flex items-center gap-3">
-            {isManagement && (
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <p className="text-sm text-gray-500 mb-1">Entries This Week</p>
+            <p className="text-3xl font-bold text-gray-900">{filteredEntries.length}</p>
+          </div>
+
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <p className="text-sm text-gray-500 mb-1">Average per Day</p>
+            <p className="text-3xl font-bold text-gray-900">{totalHours > 0 ? `${Math.round(totalHours / 7)}h` : '0h'}</p>
+          </div>
+        </div>
+
+        {/* Chart */}
+        {chartData.length > 0 && (
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <BarChart3 className="w-5 h-5" />
+              Weekly Overview
+            </h2>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="hours" fill="#4f46e5" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
+        {/* Recent Entries */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">Recent Entries</h2>
+            <div className="flex items-center gap-3">
               <select
                 value={filterUser}
                 onChange={e => setFilterUser(e.target.value)}
-                className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
                 <option value="all">All Users</option>
-                {users.filter(u => u.role === 'employee').map(u => (
-                  <option key={u.id} value={u.id}>{u.name}</option>
+                {users.filter(u => u.role !== 'admin').map(user => (
+                  <option key={user.id} value={user.id}>{user.name}</option>
                 ))}
               </select>
-            )}
-            <input
-              type="date"
-              value={filterDate}
-              onChange={e => setFilterDate(e.target.value)}
-              className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-            <button
-              onClick={exportCSV}
-              className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              <Download className="w-4 h-4" />
-              Export CSV
-            </button>
+              <button
+                onClick={exportCSV}
+                className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors"
+              >
+                <Download className="w-4 h-4" />
+                Export CSV
+              </button>
+            </div>
           </div>
-        </div>
 
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-gray-100 bg-gray-50">
-              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Date</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Task</th>
-              {isManagement && <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">User</th>}
-              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Duration</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visibleEntries.slice(0, 20).map(entry => {
-              const entryUser = users.find(u => u.id === entry.userId);
-              return (
-                <tr key={entry.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3 text-sm text-gray-600">{entry.date}</td>
-                  <td className="px-4 py-3">
-                    <p className="text-sm font-medium text-gray-900 line-clamp-1">{entry.taskTitle}</p>
-                  </td>
-                  {isManagement && (
-                    <td className="px-4 py-3">
-                      {entryUser && (
-                        <div className="flex items-center gap-2">
-                          <div className={cn('w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold', getAvatarColor(entryUser.name))}>
-                            {getInitials(entryUser.name)}
-                          </div>
-                          <span className="text-xs text-gray-600">{entryUser.name}</span>
+          {filteredEntries.length === 0 ? (
+            <p className="text-gray-500 text-center py-8">No time entries found</p>
+          ) : (
+            <div className="space-y-3">
+              {filteredEntries
+                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                .slice(0, 10)
+                .map(entry => {
+                  const task = tasks.find(t => t.id === entry.taskId);
+                  const user = users.find(u => u.id === entry.userId);
+                  return (
+                    <div key={entry.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          'w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold',
+                          getAvatarColor(user?.name || '')
+                        )}>
+                          {getInitials(user?.name || '')}
                         </div>
-                      )}
-                    </td>
-                  )}
-                  <td className="px-4 py-3">
-                    <span className="text-sm font-semibold text-indigo-600">{formatDuration(entry.duration || 0)}</span>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-500">{entry.notes || '—'}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-
-        {visibleEntries.length === 0 && (
-          <div className="text-center py-12 text-gray-400">
-            <Clock className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-            <p className="text-sm">No time entries found</p>
-          </div>
-        )}
+                        <div>
+                          <p className="font-medium text-gray-900">{task?.title || 'Unknown Task'}</p>
+                          <p className="text-sm text-gray-500">
+                            {user?.name} • {formatDate(entry.date)}
+                            {entry.notes && ` • ${entry.notes}`}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-lg font-semibold text-indigo-600">
+                        {formatDuration(entry.duration || 0)}
+                      </span>
+                    </div>
+                  );
+                })}
+            </div>
+          )}
+        </div>
       </div>
     </AppLayout>
   );
