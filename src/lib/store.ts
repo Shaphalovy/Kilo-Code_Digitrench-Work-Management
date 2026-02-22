@@ -128,7 +128,10 @@ export const useAppStore = create<AppState>()(
         users: state.users.map(u => u.id === id ? { ...u, ...updates } : u),
         currentUser: state.currentUser?.id === id ? { ...state.currentUser, ...updates } : state.currentUser,
       })),
-      deleteUser: (id) => set(state => ({ users: state.users.filter(u => u.id !== id) })),
+      deleteUser: (id) => set(state => ({ 
+        users: state.users.filter(u => u.id !== id),
+        tasks: state.tasks.filter(t => t.assigneeId !== id),
+      })),
 
       // Project Actions
       addProject: (project) => set(state => ({ projects: [...state.projects, project] })),

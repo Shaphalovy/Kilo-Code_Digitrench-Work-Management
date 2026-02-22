@@ -352,8 +352,8 @@ export default function UsersPage() {
                           className={cn(
                             'p-1.5 rounded-lg transition-colors',
                             user.isActive
-                              ? 'hover:bg-red-50 text-gray-400 hover:text-red-600'
-                              : 'hover:bg-green-50 text-gray-400 hover:text-green-600'
+                              ? 'bg-red-50 text-red-600 hover:bg-red-100'
+                              : 'bg-green-50 text-green-600 hover:bg-green-100'
                           )}
                           title={user.isActive ? 'Deactivate' : 'Activate'}
                         >
@@ -361,7 +361,7 @@ export default function UsersPage() {
                         </button>
                         <button
                           onClick={() => handleDeleteUser(user)}
-                          className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors"
+                          className="p-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
                           title="Delete user"
                         >
                           <Trash2 className="w-4 h-4" />
