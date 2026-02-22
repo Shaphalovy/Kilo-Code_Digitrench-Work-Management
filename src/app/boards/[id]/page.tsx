@@ -183,7 +183,7 @@ export default function BoardDetailPage({ params }: { params: Promise<{ id: stri
                   </button>
                   <button
                     onClick={handleDeleteProject}
-                    className="p-2 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
+                    className="p-2 rounded-lg border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
                     title="Delete Project"
                   >
                     <Settings className="w-4 h-4" />

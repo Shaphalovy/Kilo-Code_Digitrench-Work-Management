@@ -245,7 +245,7 @@ export default function TaskDetailModal({ task: initialTask, onClose }: TaskDeta
             {canDelete && (
               <button
                 onClick={handleDelete}
-                className="p-2 rounded-lg hover:bg-red-50 text-gray-500 hover:text-red-600 transition-colors"
+                className="p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
               >
                 <Trash2 className="w-4 h-4" />
               </button>

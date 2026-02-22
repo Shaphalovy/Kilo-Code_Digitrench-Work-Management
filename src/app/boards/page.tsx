@@ -184,7 +184,7 @@ export default function BoardsPage() {
                           e.stopPropagation();
                           handleDeleteProject(project.id);
                         }}
-                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        className="p-1.5 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
                         title="Delete project"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -310,7 +310,7 @@ export default function BoardsPage() {
                       <td className="px-4 py-3">
                         <button
                           onClick={() => handleDeleteProject(project.id)}
-                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          className="p-1.5 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
                           title="Delete project"
                         >
                           <Trash2 className="w-4 h-4" />
